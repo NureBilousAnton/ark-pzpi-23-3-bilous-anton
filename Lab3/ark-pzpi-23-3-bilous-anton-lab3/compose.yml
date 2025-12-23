@@ -1,0 +1,36 @@
+services:
+  database:
+    image: postgres:18
+    restart: unless-stopped
+    ports:
+      - 5432:5432
+    volumes:
+      - data:/var/lib/postgresql/
+    environment:
+      POSTGRES_DB: data
+      POSTGRES_PASSWORD: password
+      PGDATA: /var/lib/postgresql/pgdata
+
+  app:
+    image: rustlang/rust:nightly
+    ports:
+      - 3000:3000
+    environment:
+      JWT_SECRET: "not so secret"
+      BIND_ADDRESS: "0.0.0.0:3000"
+      DATABASE_URL: postgres://postgres:password@database:5432/data
+      CARGO_TARGET_DIR: ../docker-target
+      SQLX_OFFLINE: true
+    working_dir: /app
+    volumes:
+      - .:/app:ro
+      - cargo-cache:/usr/local/cargo/registry
+      - build-output:/docker-target
+    command: cargo run --release
+    depends_on:
+      - database
+
+volumes:
+  data:
+  cargo-cache:
+  build-output:
