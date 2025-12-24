@@ -25,45 +25,7 @@
 
 
                                    Харків – 2025
-                                                                            2
-    3 РОЗРОБКА БІЗНЕС ЛОГІКИ ТА ФУНКЦІЙ АДМІНІСТРУВАННЯ
-                     СЕРВЕРНОЇ ЧАСТИНИ СИСТЕМИ
-     3.1 Завдання
-
-     Ознайомитися з процесом розробки бізнес логіки та функцій адміністрування
-серверної частини програмної системи. Отримати практичні навички реалізації
-бізнес логіки, функцій адміністрування, створення UML-діаграм діяльності та
-взаємодії, а також перевірки (тестування) роботи серверної частини.
-                                                                               3
-                    МІНІСТЕРСТВО ОСВІТИ І НАУКИ УКРАЇНИ
-   ХАРКІВСЬКИЙ НАЦІОНАЛЬНИЙ УНІВЕРСИТЕТ РАДІОЕЛЕКТРОНІКИ
-
-
-
-                          Кафедра Програмної інженерії
-
-
-
-
-                                       Звіт
-                            з лабораторної роботи №3
-                      з дисципліни: «Технології розробки ПЗ»
-з теми: «Розробка бізнес логіки та функцій адміністрування серверної частини
-                                    системи»
-
-
-
-
-Виконав:                                                               Перевірив:
-ст. гр. ПЗПІ-23-X                                                         доцент
-Прізвище І. П.                                                 Прізвище Викладача
-Варіант: №16
-
-
-
-
-                                  Харків – 2025
-                                                                                 4
+                                                                                 2
     3 РОЗРОБКА БІЗНЕС ЛОГІКИ ТА ФУНКЦІЙ АДМІНІСТРУВАННЯ
                         СЕРВЕРНОЇ ЧАСТИНИ СИСТЕМИ
      3.1 Мета роботи
@@ -96,7 +58,7 @@
            конфлікт імен, помилки БД), конвертуються в уніфікований перелік
            «Error», котрий автоматично перетворюється на відповіду HTTP
            відповідь.
-                                                                                                    5
+                                                                                                    3
       3.2.2 Алгоритми бізнес-логіки (Математична модель)
 
       Ядром бізнес-логіки системи є алгоритм розрахунку адаптивного освітлення,
@@ -130,7 +92,7 @@
 яскравості та поступового уповільнення при наближенні до максимуму:
                      𝑇 (𝑡) = 𝐾min + (𝐾max − 𝐾min ) ⋅ (1 − (1 − 𝜏 )2 )                          (3.3)
       б)    Фаза «Денна активність» (Daylight).
-                                                                                          6
+                                                                                          4
      Триває від кінця ранкової фази до початку вечірнього заходу сонця.
 Температура залишається стабільною для підтримки продуктивності:
                                      𝑇 (𝑡) = 𝐾max                                      (3.4)
@@ -155,7 +117,7 @@
 {id}») розроблено діаграму діяльності. Вона демонструє складну логіку перевірки
 прав доступу, де рішення залежить від ролі користувача та налаштувань приватності
 профілю («is_shared»).
-                                                                                                                                                                                                7
+                                                                                                                                                                                                5
 
 
                                                                               Отримання запиту PUT /profiles/{id}
@@ -241,7 +203,7 @@
 виключно користувачам з роллю «Admin». Адміністративний доступ захищено
 окремим екстрактором «AdminAuthenticated», який перевіряє не лише валідність
 токена, але і поле «role» у «Claims».
-                                                                                      8
+                                                                                      6
      3.2.5 Управління користувачами та RBAC
 
      Система контролю доступу (RBAC) реалізована через ієрархію:
@@ -271,97 +233,97 @@
 коректність даних ще до початку виконання логіки. Нижче наведено приклад
 структури запиту з декларативною валідацією:
 
-      1    #[derive(Debug, Deserialize, Validate, ToSchema)]
-      2    #[garde(allow_unvalidated)]
-      3    pub struct CreateProfile {
-      4        // Ім'я не може бути пустим
-      5        #[garde(length(chars, min = 1))]
-      6        pub name: String,
-      7
-      8        // Обмеження фізики світлодіодів
-                                                                               9
+ 1 #[derive(Debug, Deserialize, Validate, ToSchema)]
+ 2 #[garde(allow_unvalidated)]
+ 3 pub struct CreateProfile {
+ 4     // Ім'я не може бути пустим
+ 5     #[garde(length(chars, min = 1))]
+ 6     pub name: String,
+ 7
+ 8     // Обмеження фізики світлодіодів
+                                                                               7
 
-       9          #[garde(range(min = 1800, max = 10000))]
-      10          pub min_color_temp: i32,
-      11
-      12          // Перевірка залежності полів: max не може бути менше min
-      13          #[garde(range(min = self.min_color_temp, max = 10000))]
-      14          pub max_color_temp: i32,
-      15
-      16          // ... інші поля
-      17      }
+ 9         #[garde(range(min = 1800, max = 10000))]
+10         pub min_color_temp: i32,
+11
+12         // Перевірка залежності полів: max не може бути менше min
+13         #[garde(range(min = self.min_color_temp, max = 10000))]
+14         pub max_color_temp: i32,
+15
+16         // ... інші поля
+17 }
 
 
-      3.2.7 Реалізація математичної моделі
+         3.2.7 Реалізація математичної моделі
 
-      Основним елементом бізнес-логіки є розрахунок температури світла. Повний
+         Основним елементом бізнес-логіки є розрахунок температури світла. Повний
 код наведено в додатку Б. Функція «interpolate_circadian_curve» використовує
 лінійну інтерполяцію та функції згладжування для створення природних переходів
 світла:
 
-          1   // Обчислення температури світла для конкретної хвилини доби
-          2   fn calculate_at_time<T: TimeZone>(&self, local_time: &DateTime<T>)
-              -> Result<i32, Error> {
-       3          // Отримання астрономічного часу заходу сонця
-       4          let (_, sunset_time) = match (self.latitude, self.longitude) {
-       5              (Some(lat), Some(lon)) => Self::calculate_solar_times(
-       6                  local_time.date_naive(), lat, lon
-       7              )?,
-       8              _ => self.estimate_solar_times(), // якщо нема локації
-       9          };
-      10
-      11          // Визначення поточної фази доби (хвилини від півночі)
-      12          let current_minutes =
-              local_time.time().num_seconds_from_midnight() / 60;
-      13
-      14          // ... логіка визначення фази сну ...
-      15
-      16          // Інтерполяція значень
-      17          Ok(self.interpolate_circadian_curve(
-      18              current_minutes,
-      19              sleep_end_minutes,   // Час пробудження
-      20              sleep_start_minutes, // Час сну
-      21              pre_sleep_minutes,   // Час підготовки до сну
-      22              sunset_minutes,      // Час заходу сонця
-      23          ))
-      24      }
+ 1 // Обчислення температури світла для конкретної хвилини доби
+ 2 fn calculate_at_time<T: TimeZone>(&self, local_time: &DateTime<T>) ->
+     Result<i32, Error> {
+ 3       // Отримання астрономічного часу заходу сонця
+ 4       let (_, sunset_time) = match (self.latitude, self.longitude) {
+ 5           (Some(lat), Some(lon)) => Self::calculate_solar_times(
+ 6               local_time.date_naive(), lat, lon
+ 7           )?,
+ 8           _ => self.estimate_solar_times(), // якщо нема локації
+ 9       };
+10
+11         // Визначення поточної фази доби (хвилини від півночі)
+12         let current_minutes =
+     local_time.time().num_seconds_from_midnight() / 60;
+13
+14         // ... логіка визначення фази сну ...
+15
+16         // Інтерполяція значень
+17         Ok(self.interpolate_circadian_curve(
+18             current_minutes,
+19             sleep_end_minutes,   // Час пробудження
+20             sleep_start_minutes, // Час сну
+21             pre_sleep_minutes,   // Час підготовки до сну
+22             sunset_minutes,      // Час заходу сонця
+23         ))
+24   }
 
 
-      3.2.8 Обробка помилок
+         3.2.8 Обробка помилок
 
-      Для централізованої обробки помилок використано enum «Error», який
+         Для централізованої обробки помилок використано enum «Error», який
 імплементує інтерфейс «IntoResponse». Це дозволяє повертати помилки з хендлерів
-                                                                             10
+                                                                              8
 як звичайні значення «Result», а Axum автоматично конвертує їх у відповідні HTTP
 статус-коди, наприклад:
 
-      1   impl From<&Error> for StatusCode {
-      2       fn from(value: &Error) -> Self {
-      3           match value {
-      4               // Конфлікти унікальності даних
-      5               Error::UsernameTaken
-      6               | Error::ProfileNameTaken => Self::CONFLICT,
-      7
-      8               // Проблеми автентифікації
-      9               Error::WrongCredentials
-     10               | Error::TokenExpired => Self::UNAUTHORIZED,
-     11
-     12               // Проблеми авторизації (бізнес-правила)
-     13               Error::UsersCannotCreateUsers
-     14               | Error::CannotChangeDeviceKey => Self::FORBIDDEN,
-     15
-     16               // Відсутність ресурсів
-     17               Error::UserNotFound
-     18               | Error::ProfileNotFound => Self::NOT_FOUND,
-     19
-     20               // Валідація
-     21               Error::InvalidData(_) => Self::UNPROCESSABLE_ENTITY,
-     22
-     23               // Внутрішні помилки сервера (не показуються клієнту)
-     24               _ => Self::INTERNAL_SERVER_ERROR,
-     25           }
-     26       }
-     27   }
+ 1 impl From<&Error> for StatusCode {
+ 2     fn from(value: &Error) -> Self {
+ 3         match value {
+ 4             // Конфлікти унікальності даних
+ 5             Error::UsernameTaken
+ 6             | Error::ProfileNameTaken => Self::CONFLICT,
+ 7
+ 8             // Проблеми автентифікації
+ 9             Error::WrongCredentials
+10             | Error::TokenExpired => Self::UNAUTHORIZED,
+11
+12             // Проблеми авторизації (бізнес-правила)
+13             Error::UsersCannotCreateUsers
+14             | Error::CannotChangeDeviceKey => Self::FORBIDDEN,
+15
+16             // Відсутність ресурсів
+17             Error::UserNotFound
+18             | Error::ProfileNotFound => Self::NOT_FOUND,
+19
+20             // Валідація
+21             Error::InvalidData(_) => Self::UNPROCESSABLE_ENTITY,
+22
+23             // Внутрішні помилки сервера (не показуються клієнту)
+24             _ => Self::INTERNAL_SERVER_ERROR,
+25         }
+26     }
+27 }
 
 
      3.3 Висновки
@@ -377,13 +339,13 @@
      Окрему увагу було приділено розробці надійного механізму обробки даних
 та адміністрування. Завдяки використанню підходу Type-Driven Development та
 декларативної валідації, система ефективно відфільтровує некоректні запити ще
-                                                                                                                                                         11
+                                                                                                                                                         9
 до початку їх обробки. Впроваджена рольова модель доступу (RBAC) разом
 із централізованою системою обробки помилок дозволила створити безпечне
 середовище для керування користувачами та системними налаштуваннями,
 забезпечуючи при цьому чітке розмежування повноважень між адміністраторами,
 власниками та звичайними користувачами.
-                                                                           12
+                                                                           10
                                  ДОДАТОК А
                                    Відеозапис
 
@@ -405,58 +367,58 @@
 07:29 Створення девайсу з прив'язаним профілем
 07:48 Перевірка чи може девайс отримати розклад
 08:17 Підсумки
-                                                                                   13
-                                       ДОДАТОК Б
-                   Код імплементації розрахунку температури світла
+                                                                                    11
+                                    ДОДАТОК Б
+                 Код імплементації розрахунку температури світла
 
 Посилання на GitHub: https://github.com/NureBilousAnton/ark-pzpi-23-3-bilous-anton/blob/main/Lab3/ark-pzpi-23-3-bilous-anton-lab3/server/src/features/circadian.rs
 
-        1      use chrono::{
-        2          DateTime,
-        3          Duration,
-        4          NaiveDate,
-        5          NaiveTime,
-        6          TimeZone,
-        7          Timelike,
-        8          Utc,
-        9      };
-       10      use chrono_tz::Tz;
-       11      use serde::{
-       12          Deserialize,
-       13          Serialize,
-       14      };
-       15      use sunrise::{
-       16          Coordinates,
-       17          SolarDay,
-       18          SolarEvent,
-       19      };
-       20      use utoipa::ToSchema;
-       21
-       22      use crate::{
-       23          errors::Error,
-       24          features::profiles::Profile,
-       25      };
-       26
-       27      /// Lighting schedule data sent to device
-       28      #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-       29      pub struct LightingSchedule {
-       30          pub profile_id: i64,
-       31
-       32          #[schema(value_type = String)]
-       33          pub timezone: Tz,
-       34          #[schema(value_type = String, example = "22:00:00")]
-       35          pub sleep_start: NaiveTime,
-       36          #[schema(value_type = String, example = "07:00:00")]
-       37          pub sleep_end: NaiveTime,
-       38
-       39          pub night_mode_enabled: bool,
-       40
-       41          pub generated_at: DateTime<Utc>,
-       42          pub valid_until: DateTime<Utc>,
-       43
-       44          /// Lookup table of lighting data points
-       45          pub schedule: Vec<LightingPoint>,
-                                                                      14
+  1   use chrono::{
+  2       DateTime,
+  3       Duration,
+  4       NaiveDate,
+  5       NaiveTime,
+  6       TimeZone,
+  7       Timelike,
+  8       Utc,
+  9   };
+ 10   use chrono_tz::Tz;
+ 11   use serde::{
+ 12       Deserialize,
+ 13       Serialize,
+ 14   };
+ 15   use sunrise::{
+ 16       Coordinates,
+ 17       SolarDay,
+ 18       SolarEvent,
+ 19   };
+ 20   use utoipa::ToSchema;
+ 21
+ 22   use crate::{
+ 23       errors::Error,
+ 24       features::profiles::Profile,
+ 25   };
+ 26
+ 27   /// Lighting schedule data sent to device
+ 28   #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+ 29   pub struct LightingSchedule {
+ 30       pub profile_id: i64,
+ 31
+ 32       #[schema(value_type = String)]
+ 33       pub timezone: Tz,
+ 34       #[schema(value_type = String, example = "22:00:00")]
+ 35       pub sleep_start: NaiveTime,
+ 36       #[schema(value_type = String, example = "07:00:00")]
+ 37       pub sleep_end: NaiveTime,
+ 38
+ 39       pub night_mode_enabled: bool,
+ 40
+ 41       pub generated_at: DateTime<Utc>,
+ 42       pub valid_until: DateTime<Utc>,
+ 43
+ 44       /// Lookup table of lighting data points
+ 45       pub schedule: Vec<LightingPoint>,
+                                                                         12
 
 46   }
 47
@@ -477,257 +439,254 @@
 61           let now = Utc::now();
 62           let timezone = self.timezone.parse()?;
 63
-64            let mut schedule = Vec::with_capacity(points.into());
+64           let mut schedule = Vec::with_capacity(points.into());
 65
-66            for timestamp in (0..points.into()).map(|i| now + offset
-     * i) {
-67               schedule.push(LightingPoint {
-68                   timestamp,
-69                   color_temp:
+66           for timestamp in (0..points.into()).map(|i| now + offset * i)
+     {
+67                schedule.push(LightingPoint {
+68                    timestamp,
+69                    color_temp:
      self.calculate_at_time(&timestamp.with_timezone(&timezone))?,
 70               });
 71           }
 72
-73            Ok(LightingSchedule {
-74                profile_id: self.id,
-75                timezone,
-76                sleep_start: self.sleep_start,
-77                sleep_end: self.sleep_end,
-78                night_mode_enabled: self.night_mode_enabled,
+73           Ok(LightingSchedule {
+74               profile_id: self.id,
+75               timezone,
+76               sleep_start: self.sleep_start,
+77               sleep_end: self.sleep_end,
+78               night_mode_enabled: self.night_mode_enabled,
 79
-80                 generated_at: now,
-81                 valid_until: now + offset * points.into(),
-82                 schedule,
-83            })
+80                generated_at: now,
+81                valid_until: now + offset * points.into(),
+82                schedule,
+83           })
 84       }
 85
 86       /// Calculate color temperature for a specific local time
-87       fn calculate_at_time<T: TimeZone>(&self, local_time:
-     &DateTime<T>) -> Result<i32, Error> {
+87       fn calculate_at_time<T: TimeZone>(&self, local_time: &DateTime<T>)
+     -> Result<i32, Error> {
 88           let (_, sunset_time) = if let (Some(lat), Some(lon)) =
-     (self.latitude, self.longitude) {
-89               Self::calculate_solar_times(local_time.date_naive(),
-     lat, lon)?
+   (self.latitude, self.longitude) {
+89             Self::calculate_solar_times(local_time.date_naive(), lat,
+     lon)?
 90           } else {
 91               self.estimate_solar_times()
-92           };
-93
-                                                                       15
+                                                                            13
 
-94            // Convert all times to minutes from midnight for easier
+ 92             };
+ 93
+ 94             // Convert all times to minutes from midnight for easier
       comparison
-95            let current_minutes =
+ 95           let current_minutes =
       local_time.time().num_seconds_from_midnight() / 60;
-96
-97            let sleep_start_minutes =
+ 96
+ 97             let sleep_start_minutes =
       self.sleep_start.num_seconds_from_midnight() / 60;
-98            let sleep_end_minutes =
+ 98           let sleep_end_minutes =
       self.sleep_end.num_seconds_from_midnight() / 60;
  99
-100           let sunset_minutes =
-      sunset_time.num_seconds_from_midnight() / 60;
+100             let sunset_minutes = sunset_time.num_seconds_from_midnight() /
+      60;
 101
-102           // Determine if we're in sleep period
-103           let in_sleep_period = if sleep_start_minutes <
+102             // Determine if we're in sleep period
+103             let in_sleep_period = if sleep_start_minutes <
       sleep_end_minutes {
 104               // Sleep doesn't cross midnight (e.g. 2:00-10:00)
-105               current_minutes >= sleep_start_minutes &&
-      current_minutes < sleep_end_minutes
+105               current_minutes >= sleep_start_minutes && current_minutes
+      < sleep_end_minutes
 106           } else {
 107               // Sleep crosses midnight (e.g. 22:00-06:00)
-108               current_minutes >= sleep_start_minutes ||
-      current_minutes < sleep_end_minutes
+108               current_minutes >= sleep_start_minutes || current_minutes
+      < sleep_end_minutes
 109           };
 110
-111           if in_sleep_period {
-112               return Ok(self.min_color_temp);
-113           }
+111             if in_sleep_period {
+112                 return Ok(self.min_color_temp);
+113             }
 114
-115           // We start winding down 60 mins before bed
-116           let pre_sleep_minutes = if sleep_start_minutes >= 60 {
-117               sleep_start_minutes - 60 // 1 hour before sleep
-118           } else {
-119               23 * 60 + sleep_start_minutes // Handle midnight
-      crossing
-120           };
+115             // We start winding down 60 mins before bed
+116             let pre_sleep_minutes = if sleep_start_minutes >= 60 {
+117                 sleep_start_minutes - 60 // 1 hour before sleep
+118             } else {
+119                 23 * 60 + sleep_start_minutes // Handle midnight crossing
+120             };
 121
-122           // Calculate color temperature using piecewise function
-123           Ok(self.interpolate_circadian_curve(
-124               current_minutes,
-125               sleep_end_minutes,   // Wake time
-126               sleep_start_minutes, // Sleep time
-127               pre_sleep_minutes,   // Wind down time
-128               sunset_minutes,
-129           ))
-130       }
+122             // Calculate color temperature using piecewise function
+123             Ok(self.interpolate_circadian_curve(
+124                 current_minutes,
+125                 sleep_end_minutes,   // Wake time
+126                 sleep_start_minutes, // Sleep time
+127                 pre_sleep_minutes,   // Wind down time
+128                 sunset_minutes,
+129             ))
+130         }
 131
-132       /// Calculate sunrise and sunset times using astronomical
+132         /// Calculate sunrise and sunset times using astronomical
       algorithms
+                                                                             14
+
 133       fn calculate_solar_times(
 134           date: NaiveDate,
 135           latitude: f64,
 136           longitude: f64,
-                                                                   16
-
-137     ) -> Result<(NaiveTime, NaiveTime), Error> {
-138         let coord = Coordinates::new(latitude,
-    longitude).ok_or(Error::DataCorruption(format!(
-139             "Invalid coordinates: {latitude}, {longitude}"
-140         )))?;
-141         let solar_day = SolarDay::new(coord, date);
+137       ) -> Result<(NaiveTime, NaiveTime), Error> {
+138           let coord = Coordinates::new(latitude,
+      longitude).ok_or(Error::DataCorruption(format!(
+139               "Invalid coordinates: {latitude}, {longitude}"
+140           )))?;
+141           let solar_day = SolarDay::new(coord, date);
 142
-143         let sunrise =
-    solar_day.event_time(SolarEvent::Sunrise).time();
-144         let sunset =
-    solar_day.event_time(SolarEvent::Sunset).time();
+143           let sunrise =
+      solar_day.event_time(SolarEvent::Sunrise).time();
+144           let sunset = solar_day.event_time(SolarEvent::Sunset).time();
 145
-146         Ok((sunrise, sunset))
-147     }
+146           Ok((sunrise, sunset))
+147       }
 148
-149     /// Estimate solar times based on sleep schedule when
-    location is missing:
-150     /// - Sunrise aligns with Wake Up time (user needs light to
-    wake up).
-151     /// - Sunset is approximated 2 hours before Sleep Start to
-    allow for an evening relaxation phase.
-152     fn estimate_solar_times(&self) -> (NaiveTime, NaiveTime) {
-153         let sleep_start_seconds =
-    self.sleep_start.num_seconds_from_midnight();
-154         let offset_seconds = 2 * 3600; // 2 hours
+149       /// Estimate solar times based on sleep schedule when location is
+      missing:
+150       /// - Sunrise aligns with Wake Up time (user needs light to wake
+      up).
+151       /// - Sunset is approximated 2 hours before Sleep Start to allow
+      for an evening relaxation phase.
+152       fn estimate_solar_times(&self) -> (NaiveTime, NaiveTime) {
+153           let sleep_start_seconds =
+      self.sleep_start.num_seconds_from_midnight();
+154           let offset_seconds = 2 * 3600; // 2 hours
 155
-156         // Handle wrapping around midnight
-157         let sunset_seconds = if sleep_start_seconds >=
-    offset_seconds {
-158             sleep_start_seconds - offset_seconds
-159         } else {
-160             // e.g. sleep at 01:00, 3600s - 2h = 23:00 prev day
-161             24 * 3600 - (offset_seconds - sleep_start_seconds)
-162         };
+156           // Handle wrapping around midnight
+157           let sunset_seconds = if sleep_start_seconds >= offset_seconds
+      {
+158               sleep_start_seconds - offset_seconds
+159           } else {
+160               // e.g. sleep at 01:00, 3600s - 2h = 23:00 prev day
+161               24 * 3600 - (offset_seconds - sleep_start_seconds)
+162           };
 163
-164         #[allow(clippy::expect_used)]
-165         let sunset =
-    NaiveTime::from_num_seconds_from_midnight_opt(sunset_seconds, 0)
-166             .unwrap_or(NaiveTime::from_hms_opt(20, 0,
-    0).expect("valid time"));
+164           #[allow(clippy::expect_used)]
+165           let sunset =
+      NaiveTime::from_num_seconds_from_midnight_opt(sunset_seconds, 0)
+166               .unwrap_or(NaiveTime::from_hms_opt(20, 0, 0).expect("valid
+      time"));
 167
-168         (self.sleep_end, sunset)
-169     }
+168           (self.sleep_end, sunset)
+169       }
 170
-171     /// Calculates curve with 4 phases:
-172     /// 1. Wake -> Morning Boost (Min -> Max)
-173     /// 2. Day -> Sunset (Hold Max)
-174     /// 3. Sunset -> Pre-Sleep (Max -> Relaxation Temp)
-175     /// 4. Pre-Sleep -> Sleep (Relaxation Temp -> Min)
-176     #[allow(clippy::too_many_arguments)]
-177     fn interpolate_circadian_curve(
-178         &self,
-179         current_minutes: u32,
-                                                                      17
+171       /// Calculates curve with 4 phases:
+172       /// 1. Wake -> Morning Boost (Min -> Max)
+173       /// 2. Day -> Sunset (Hold Max)
+                                                                          15
 
-180         wake_minutes: u32,
-181         sleep_minutes: u32,
-182         pre_sleep_minutes: u32,
-183         sunset_minutes: u32,
-184     ) -> i32 {
-185         // Define an "Evening/Relaxation" temperature
-186         // This is warmer than daylight but brighter than
-    nightlight
-187         // e.g. if Max=6500, Min=2000, Relax = 3500
-188         let relax_temp = self.min_color_temp +
-    (self.max_color_temp - self.min_color_temp) / 3;
+174      /// 3. Sunset -> Pre-Sleep (Max -> Relaxation Temp)
+175      /// 4. Pre-Sleep -> Sleep (Relaxation Temp -> Min)
+176      #[allow(clippy::too_many_arguments)]
+177      fn interpolate_circadian_curve(
+178          &self,
+179          current_minutes: u32,
+180          wake_minutes: u32,
+181          sleep_minutes: u32,
+182          pre_sleep_minutes: u32,
+183          sunset_minutes: u32,
+184      ) -> i32 {
+185          // Define an "Evening/Relaxation" temperature
+186          // This is warmer than daylight but brighter than nightlight
+187          // e.g. if Max=6500, Min=2000, Relax = 3500
+188          let relax_temp = self.min_color_temp + (self.max_color_temp -
+      self.min_color_temp) / 3;
 189
-190         // Helper to check time range which may wrap midnight
-191         let in_range = |curr: u32, start: u32, end: u32| -> bool
-    {
-192             if start <= end {
-193                 curr >= start && curr < end
-194             } else {
-195                 curr >= start || curr < end
-196             }
-197         };
+190          // Helper to check time range which may wrap midnight
+191          let in_range = |curr: u32, start: u32, end: u32| -> bool {
+192              if start <= end {
+193                  curr >= start && curr < end
+194              } else {
+195                  curr >= start || curr < end
+196              }
+197          };
 198
-199         // Helper for linear interpolation 0.0 -> 1.0
-200         let get_t = |curr: u32, start: u32, end: u32| -> f64 {
-201             if start <= end {
-202                 if curr < start {
-203                      return 0.0;
-204                 }
-205                 if curr > end {
-206                      return 1.0;
-207                 }
-208                 f64::from(curr - start) / f64::from(end - start)
-209             } else {
-210                 let total = f64::from(24 * 60 - start + end);
-211                 let val = if curr >= start {
-212                      f64::from(curr - start)
-213                 } else {
-214                      f64::from(24 * 60 - start + curr)
-215                 };
-216                 val / total
-217             }
-218         };
+199          // Helper for linear interpolation 0.0 -> 1.0
+200          let get_t = |curr: u32, start: u32, end: u32| -> f64 {
+201              if start <= end {
+202                  if curr < start {
+203                       return 0.0;
+204                  }
+205                  if curr > end {
+206                       return 1.0;
+207                  }
+208                  f64::from(curr - start) / f64::from(end - start)
+209              } else {
+210                  let total = f64::from(24 * 60 - start + end);
+211                  let val = if curr >= start {
+212                       f64::from(curr - start)
+213                  } else {
+214                       f64::from(24 * 60 - start + curr)
+215                  };
+216                  val / total
+217              }
+218          };
 219
-220         // Morning ramp-up duration, 60 mins after waking
-221         let morning_end_minutes = (wake_minutes + 60) % 1440;
+220          // Morning ramp-up duration, 60 mins after waking
+221          let morning_end_minutes = (wake_minutes + 60) % 1440;
 222
-223         // PHASE 1: Morning Boost (Wake -> Wake+1h)
-224         if in_range(current_minutes, wake_minutes,
-    morning_end_minutes) {
-225             let t = get_t(current_minutes, wake_minutes,
+223          // PHASE 1: Morning Boost (Wake -> Wake+1h)
+224          if in_range(current_minutes, wake_minutes,
+      morning_end_minutes) {
+                                                                           16
+
+225               let t = get_t(current_minutes, wake_minutes,
       morning_end_minutes);
 226               // Ease-out (fast rise, slow finish)
 227               let t_eased = (1.0 - t).mul_add(-(1.0 - t), 1.0);
 228               #[allow(clippy::cast_possible_truncation)]
 229               return self.min_color_temp
-                                                                   18
-
-230                  + (f64::from(self.max_color_temp -
-    self.min_color_temp) * t_eased) as i32;
-231         }
+230                   + (f64::from(self.max_color_temp -
+      self.min_color_temp) * t_eased) as i32;
+231           }
 232
-233         // PHASE 4: Final Wind Down (Pre-Sleep -> Sleep)
-234         // We check this before Phase 2/3 to ensure user sleep
-    schedule overrides solar sunset
-235         if in_range(current_minutes, pre_sleep_minutes,
-    sleep_minutes) {
-236             let t = get_t(current_minutes, pre_sleep_minutes,
-    sleep_minutes);
-237             // Ease-in (slow drop start, fast finish)
-238             let t_eased = t.powi(2);
-239             // Drop from Relax Temp to Min Temp
-240             #[allow(clippy::cast_possible_truncation)]
-241             return relax_temp - (f64::from(relax_temp -
-    self.min_color_temp) * t_eased) as i32;
-242         }
+233          // PHASE 4: Final Wind Down (Pre-Sleep -> Sleep)
+234          // We check this before Phase 2/3 to ensure user sleep
+      schedule overrides solar sunset
+235           if in_range(current_minutes, pre_sleep_minutes, sleep_minutes)
+      {
+236               let t = get_t(current_minutes, pre_sleep_minutes,
+      sleep_minutes);
+237               // Ease-in (slow drop start, fast finish)
+238               let t_eased = t.powi(2);
+239               // Drop from Relax Temp to Min Temp
+240               #[allow(clippy::cast_possible_truncation)]
+241               return relax_temp - (f64::from(relax_temp -
+      self.min_color_temp) * t_eased) as i32;
+242           }
 243
-244         // PHASE 3: Evening Relaxation (Sunset -> Pre-Sleep)
-245         // We need to check if Sunset happens before Pre-Sleep
-246         // If Sunset is super late (summer) or after pre_sleep,
-    we skip this logic
-247         // NOTE: We use sunset_minutes as start,
-    pre_sleep_minutes as end.
-248         if in_range(current_minutes, sunset_minutes,
-    pre_sleep_minutes) {
-249             // Determine effective start/end for interpolation
-250             // If we are here, we are between sunset and pre-
-    sleep
-251             let t = get_t(current_minutes, sunset_minutes,
-    pre_sleep_minutes);
-252             // Linear drop from Max to Relax
-253             #[allow(clippy::cast_possible_truncation)]
-254             return self.max_color_temp -
-    (f64::from(self.max_color_temp - relax_temp) * t) as i32;
-255         }
+244          // PHASE 3: Evening Relaxation (Sunset -> Pre-Sleep)
+245          // We need to check if Sunset happens before Pre-Sleep
+246          // If Sunset is super late (summer) or after pre_sleep, we
+      skip this logic
+247           // NOTE: We use sunset_minutes as start, pre_sleep_minutes as
+      end.
+248          if in_range(current_minutes, sunset_minutes,
+      pre_sleep_minutes) {
+249               // Determine effective start/end for interpolation
+250               // If we are here, we are between sunset and pre-sleep
+251               let t = get_t(current_minutes, sunset_minutes,
+      pre_sleep_minutes);
+252               // Linear drop from Max to Relax
+253               #[allow(clippy::cast_possible_truncation)]
+254               return self.max_color_temp -
+      (f64::from(self.max_color_temp - relax_temp) * t) as i32;
+255           }
 256
-257         // PHASE 2: Daylight (Morning End -> Sunset OR Pre-Sleep)
-258         // If we haven't hit sunset yet, or if sunset is weirdly
-    placed, keep it bright.
-259         // Also captures the "gap" if sunrise is way before wake
-    time (handled by default max).
+257          // PHASE 2: Daylight (Morning End -> Sunset OR Pre-Sleep)
+258          // If we haven't hit sunset yet, or if sunset is weirdly
+      placed, keep it bright.
+259           // Also captures the "gap" if sunrise is way before wake time
+      (handled by default max).
+                                                                              17
+
 260
-261         // Simply returning max_temp covers the remaining
-    productive hours.
-262         self.max_color_temp
-263     }
-264 }
+261            // Simply returning max_temp covers the remaining productive
+      hours.
+262            self.max_color_temp
+263       }
+264   }
 
