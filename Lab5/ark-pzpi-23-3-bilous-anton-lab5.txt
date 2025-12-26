@@ -776,8 +776,7 @@ Compose дозволило створити ізольоване та відтв
                                     ДОДАТОК Б
                                   Файл compose.yml
 
-     Посилання     на   GitHub:     https://github.com/NureBilousAnton/ark-pzpi-23-3-
-bilous-anton/blob/main/Lab5/ark-pzpi-23-3-bilous-anton-lab5/compose.yml
+     Посилання     на   GitHub:     https://github.com/NureBilousAnton/ark-pzpi-23-3-bilous-anton/blob/main/Lab5/ark-pzpi-23-3-bilous-anton-lab5/compose.yml
 
  1 services:
  2   database:
@@ -829,8 +828,7 @@ bilous-anton/blob/main/Lab5/ark-pzpi-23-3-bilous-anton-lab5/compose.yml
                                      ДОДАТОК В
                          Код налаштувань IoT клієнта (config.h)
 
-      Посилання     на     GitHub:   https://github.com/NureBilousAnton/ark-pzpi-23-3-
-bilous-anton/blob/main/Lab5/ark-pzpi-23-3-bilous-anton-lab5/iot/src/config.h
+      Посилання     на     GitHub:   https://github.com/NureBilousAnton/ark-pzpi-23-3-bilous-anton/blob/main/Lab5/ark-pzpi-23-3-bilous-anton-lab5/iot/src/config.h
 
  1   // Device Configuration
  2   #ifndef LUMIRUM_CONFIG_H
