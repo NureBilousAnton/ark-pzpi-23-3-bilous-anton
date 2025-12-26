@@ -1,0 +1,1537 @@
+                    МІНІСТЕРСТВО ОСВІТИ І НАУКИ УКРАЇНИ
+   ХАРКІВСЬКИЙ НАЦІОНАЛЬНИЙ УНІВЕРСИТЕТ РАДІОЕЛЕКТРОНІКИ
+
+
+
+                           Кафедра Програмної інженерії
+
+
+
+
+                                        Звіт
+                             з лабораторної роботи №4
+                     з дисципліни: «Аналіз та рефакторинг коду»
+                          з теми: «Створення IоT клієнта»
+
+
+
+
+Виконав:                                                               Перевірив:
+ст. гр. ПЗПІ-23-3                                                 ст. викл. каф. ПІ
+Білоус А. А.                                                        Сокорчук І. П.
+
+
+
+
+                                   Харків – 2025
+                                                                                2
+                         4 СТВОРЕННЯ IОT КЛІЄНТА
+     4.1 Мета роботи
+
+     Отримати практичні навички з розробки IoT клієнта, включаючи
+проектування його архітектури, бізнес логіки, налаштувань, та інтеграцію із
+серверною частиною. Навчитися використовувати UML для створення діаграм
+прецедентів та діяльності, а також перевіряти функціональність IoT клієнта через
+тестування та інтеграцію.
+
+     4.2 Хід роботи
+     4.2.1 Будова програмного забезпечення IoT клієнта
+
+     IoT клієнт системи «LumiRum» спроектований на базі мікроконтролера
+ESP32-C3 з використанням фреймворку Arduino. Архітектура програмного
+забезпечення базується на подійно-орієнтованому підході з чітким розділенням
+на модулі ініціалізації, мережевої взаємодії, бізнес-логіки та керування апаратним
+забезпеченням.
+     Ключовим архітектурним рішенням є автономність пристрою («Edge
+Computing»). Пристрій завантажує розклад освітлення з сервера, кешує його в
+оперативній пам’яті та продовжує виконувати алгоритми адаптивного освітлення
+навіть у разі втрати з’єднання з мережею Інтернет.
+     Програмне забезпечення складається з таких логічних компонентів:
+      а)   менеджер конфігурації (Configuration Manager): відповідає за зчитування
+           налаштувань з енергонезалежної пам’яті (NVS) та керування режимом
+           налаштування (Config Mode) через вбудований веб-сервер;
+     б)    мережевий модуль (Network & Time Module): забезпечує підключення до
+           WiFi, синхронізацію часу через NTP (Network Time Protocol) та виконання
+           HTTP-запитів до API сервера;
+     в)    модуль бізнес-логіки (Business Logic Core): реалізує алгоритми
+           інтерполяції колірної температури, обробку розкладу сну та логіку
+           автоматичного/ручного режимів;
+      г)   драйвери периферії (HAL): абстракція над апаратними інтерфейсами
+           для керування адресною LED-стрічкою (WS2812B), зчитуванням даних з
+           PIR-сенсора, потенціометра та кнопок.
+                                                                             3
+     4.2.2 Структура даних та модулі обробки
+
+     Для забезпечення стабільної роботи системи розроблено типізовані структури
+даних, що відображають стан пристрою та отримані з сервера конфігурації.
+     Основні структури даних:
+     а)   «DeviceState»: зберігає поточний стан операції пристрою (режим
+          Авто/Ручний, яскравість, поточна температура світла, час останнього
+          виявлення руху);
+     б)   «LightingSchedule»: містить закешований розклад освітлення, отриманий
+          від API, включаючи точки інтерполяції (timestamp, color_temp) та
+          метадані профілю (час сну, налаштування нічного режиму).
+     Модулі обробки даних включають:
+     а)   JSON парсер: використовує бібліотеку «ArduinoJson» для десеріалізації
+          відповідей сервера та формування пакетів телеметрії;
+     б)   Алгоритмічний рушій: обчислює поточну колірну температуру шляхом
+          лінійної інтерполяції між двома найближчими часовими точками
+          розкладу;
+     в)   Перетворювач кольору: реалізує алгоритм Таннера Хелланда (Tanner
+          Helland) для перетворення температури в Кельвінах у RGB-значення для
+          LED-стрічки.
+
+     4.2.2.1 Мережеві протоколи та взаємодія
+
+     Взаємодія з серверною частиною здійснюється за архітектурним стилем REST
+через протокол HTTP.
+     Використовуються наступні ендпоінти:
+     а)   «GET /devices/circadian»: завантаження розкладу освітлення. Пристрій
+          відправляє свій API Key у заголовку «x-api-key». У разі отримання
+          статусу 401 (Unauthorized), пристрій автоматично переходить у режим
+          конфігурації де користувач може вставити новий секретний ключ
+          пристрою;
+     б)   «POST /telemetry»: відправка даних про стан датчиків та режим
+          роботи. Реалізовано механізм «Debounce» (затримка), щоб уникнути
+                                                                              4
+          перевантаження мережі при частих спрацюваннях датчика руху чи
+          оновлення інших парметрів.
+     Для керування пристроєм реалізовано локальний веб-сервер (порт 80), який
+активується у випадку відсутності дійсного API ключа або проблем з авторизацією.
+Це дозволяє користувачу налаштувати пристрій через браузер без необхідності
+перепрошивки.
+
+     4.2.3 UML діаграма прецедентів
+
+     Для моделювання функціональних вимог до IoT клієнта та його взаємодії з
+навколишнім середовищем розроблена діаграма прецедентів (див. Рисунок 4.1).
+     Діаграма виділяє трьох основних акторів:
+     а)   фізичний користувач: Людина, яка знаходиться в приміщенні та взаємодіє
+          з системою через фізичні інтерфейси (кнопка, датчики, візуальне
+          сприйняття світла);
+     б)   адміністратор (Web): Користувач, який виконує первинне налаштування
+          пристрою або відновлення доступу через локальний веб-інтерфейс;
+     в)   сервер LumiRum: Зовнішня система, яка надає дані розкладу та приймає
+          телеметрію.
+     Основні сценарії використання (Use Cases):
+     а)   Забезпечення адаптивного освітлення: Головний прецедент, що включає в
+          себе алгоритмічне керування LED-стрічкою на основі часу доби та даних
+          з сенсорів.
+     б)   Взаємодія з сервером: Пристрій виступає ініціатором з’єднання для
+          отримання актуального розкладу циркадних ритмів («Fetch Schedule») та
+          відправки звітів про події («Send Telemetry»).
+     в)   Керування режимами: Користувач може фізично впливати на роботу
+          пристрою, перемикаючи режими (Авто/Ручний) кнопкою або змінюючи
+          яскравість потенціометром.
+     г)   Конфігурація: У випадку відсутності авторизації (помилка 401) або
+          першого запуску, пристрій надає веб-інтерфейс для введення API ключа.
+                                                                                                                                                                                    5
+
+
+          Веб користувач                                            Фізичний користувач                                                          С ервер
+
+                                                                                     IoT Клієнт
+ Через Веб Браузер                                        Переміщення в зоні дії
+                                                                                                                                  (JSON Schedule)
+                                                                                                                                                        (POST Events)
+         Адміністрування                                              Фізична взаємодія
+                                                                                                                                        Ме р е же в а в з а є мод і я
+
+
+     Налаштування API ключа      Регулювання яскравості            Виявлення присутності          Перемикання режиму     Отримання розкладу                  Відправка телеметрії
+                                                                                                     (Авто/Ручний)
+                                                    «include»
+         «extends»                                                     «include»                                           «include»
+
+
+
+       Відображення статусу                                      Забе зпечення адаптивного                   «include»
+                                                                                                                         Синхронізація часу NTP
+             п ом и л к и                                                о світлення
+
+
+
+
+           4.2.4 Розробка бізнес-логіки
+                    Рисунок  4.1 – UML та  функцій
+                                        діаграма   налаштування
+                                                 прецедентів     IoT клієнта
+                                                             IoT клієнта
+           Ядром програмного забезпечення IoT клієнта є нескінченний цикл «loop()»,
+який реалізує архітектуру кінцевого автомата. Логіка роботи розділена на декілька
+незалежних процесів, що виконуються псевдо-паралельно завдяки відсутності
+блокуючих операцій (затримки реалізовані через перевірку системного таймера
+«millis()»). Основні реалізовані алгоритми:
+            а)       Керування освітленням на основі руху та режиму роботи: Система
+                     підтримує два режими: «Автоматичний» та «Ручний». У автоматичному
+                     режимі світло вмикається при отриманні сигналу високого рівня
+                     («HIGH») з PIR-сенсора. Вимкнення відбувається після спливання
+                     тайм-ауту («motionTimeoutSeconds»), який динамічно завантажується з
+                     розкладу сервера;
+           б)        Розрахунок               параметрів                           світла            (Circadian          Calculation):                                  Пристрій
+                     самостійно обчислює необхідну колірну температуру для поточного
+                     моменту часу. Використовується алгоритм лінійної інтерполяції між
+                     точками розкладу, збереженими у структурі «LightingSchedule». Це
+                     забезпечує плаву зміну спектра світла навіть без доступу до мережі;
+           в)        Обмін даними з сервером:
+                     1)       Синхронізація: Раз на годину (або при значному стрибку часу)
+                              виконується HTTP GET запит для оновлення розкладу;
+                     2)       Телеметрія: При зміні стану (виявлення руху, перемикання
+                              режимів) формується JSON-пакунок, який відправляється на сервер
+                              методом POST. Реалізовано механізм «Debounce» (2 секунди
+                              за замовчуванням) для запобігання перевантаження серверу при
+                              частому спрацюванні датчиків.
+                                                                               6
+     Приклад реалізації логіки обчислення температури світла (повний код
+реалізації IoT клієнта можна знайти в додатку В):
+
+ 1 int getCurrentColorTemp() {
+ 2   // Розклад не завантажено або діє нічний режим, повертаємо мінімум
+ 3   if (!state.scheduleLoaded ||
+ 4     (schedule.nightModeEnabled && isNightTime()))
+ 5     return MIN_COLOR_TEMP_K;
+ 6
+ 7   time_t now = time(nullptr);
+ 8   // ... логіка визначення поточного часу доби ...
+ 9
+10   // Пошук відповідного інтервалу в кешованому розкладі
+11   for (int i = 0; i < schedule.pointCount - 1; ++i) {
+12     // ... порівняння часових міток ...
+13     if (currentDaySeconds >= daySeconds1 &&
+14       currentDaySeconds < daySeconds2) {
+15       // Лінійна інтерполяція між двома точками
+16       float progress = (float)(currentDaySeconds - daySeconds1) /
+17                        (float)(daySeconds2 - daySeconds1);
+18       int temp1 = schedule.points[i].colorTemp;
+19       int temp2 = schedule.points[i + 1].colorTemp;
+20       return temp1 + (int)(progress * (temp2 - temp1));
+21     }
+22   }
+23   return DEFAULT_COLOR_TEMP_K;
+24 }
+
+
+     4.2.4.1 Функції налаштування та конфігурації
+
+     Для забезпечення зручності розгортання та обслуговування розроблено
+механізми динамічної конфігурації:
+      а)   Робота   з   енергонезалежною   пам’яттю    (NVS):    Для   збереження
+           налаштувань використовується бібліотека «Preferences». Це дозволяє
+           зберігати API-ключ та SSID WiFi мережі навіть після повного
+           знеструмлення пристрою.
+     б)    Режим конфігурації (Config Mode / Captive Portal): Якщо при старті
+           пристрій отримує помилку авторизації «401 Unauthorized» від сервера,
+           він автоматично переходить у режим конфігурації. У цьому режимі:
+           1)   Активується вбудований веб-сервер на порту 80;
+           2)   Світлова індикація переходить у режим «Помилка» (червоне світло);
+           3)   Користувач має змогу через браузер ввести новий API-ключ, який
+                буде збережено у NVS.
+                                                                               7
+     в)   Керування енергоспоживанням: імплементовано програмне обмеження
+          максимальної яскравості, що запобігає перевантаженню джерела
+          живлення при старті. Також реалізовано гістерезис при зчитуванні
+          даних з потенціометра, щоб уникнути мерехтіння світла при граничних
+          значеннях.
+     Частина коду обробника режиму конфігурації (повний код можна знайти в
+додатку В):
+
+ 1 void enterConfigMode() {
+ 2   if (isInConfigMode) return;
+ 3   isInConfigMode = true;
+ 4
+ 5   // Візуальна індикація помилки
+ 6   state.lightIsOn = true;
+ 7   state.currentColorTemp = MIN_COLOR_TEMP_K; // Червоне світло
+ 8   updateLighting();
+ 9
+10   // Запуск веб-сервера для введення ключа
+11   server.on("/", HTTP_GET, []() {
+12     String html = "<html><body><h1>LumiRum Device Config</h1>";
+13     html += "<form action='/save' method='POST'>";
+14     html += "API Key: <input type='text' name='apikey'><br>";
+15     html += "<input type='submit' value='Save & Reboot'>";
+16     html += "</form></body></html>";
+17     server.send(HTTP_CODE_OK, "text/html", html);
+18   });
+19
+20   // ... логіка збереження та перезавантаження ...
+21
+22   server.begin();
+23 }
+
+
+     4.2.5 UML діаграма діяльності
+
+     Для візуалізації алгоритмів роботи програмного забезпечення IoT клієнта
+розроблено діаграму діяльності (див. Рисунок 4.2): від моменту подачі живлення до
+переходу в основний цикл роботи або режим конфігурації.
+     Діаграма демонструє наступні ключові процеси:
+     а)   ініціалізація: Налаштування портів вводу-виводу (GPIO), завантаження
+          збережених налаштувань з енергонезалежної пам’яті та встановлення
+          з’єднання з мережею WiFi;
+                                                                          8
+б)   валідація авторизації: Перевірка API ключа шляхом спроби завантаження
+     розкладу. У разі невдачі (HTTP 401) система блокує основний цикл і
+     переходить у режим веб-сервера для налаштування;
+в)   основний цикл (Main Loop): Безперервне опитування датчиків,
+     розрахунок параметрів освітлення на основі часу та кешованого розкладу,
+     а також керування LED-стрічкою;
+г)   асинхронна телеметрія: Відправка даних на сервер лише при зміні стану
+     системи, що економить мережеві ресурси.
+                                                                                                                         9
+
+
+                                    Ініціалізація Serial, GPIO, LED
+
+
+
+                         Завантаження налаштувань (NVS Preferences)
+
+
+                           Мережеве підключення
+
+                                     так
+                                             WiFi підключено?
+                                                     ні
+
+
+
+                                    Спроба підключення до WiFi
+
+
+
+                                      Перевищено ліміт спроб?
+                                                     так
+
+
+                                      Робота в офлайн режимі
+
+
+
+
+                                      Синхронізація часу (NTP)
+
+
+
+      Отримання конфігурації
+
+
+                                    Запит GET /devices/circadian
+
+
+                              так                                       ні
+                                     Відповідь 401 Unauthorized?
+
+
+         Встановлення прапора isInConfigMode                           Парсинг JSON
+
+
+
+             Увімкнення червоної індикації                  Кешування розкладу в RAM
+
+
+
+            Запуск Web-сервера налаштувань
+
+
+
+  Основний цикл (Loop)
+
+                                               Живлення є
+
+
+                                    так                           ні
+                                           Режим конфігурації?
+
+
+       Обробка запитів Web-клієнтів                         Зчитування стану кнопки та потенціометра
+
+
+                                                                  так                                ні
+                                                                             Датчик руху активний?
+
+
+                                                                                              Таймер активності сплив?
+                                                Скидання таймера активності
+                                                                                                          так
+
+
+                                                                                                 Вимкнення світла
+                                                      Увімкнення світла
+
+
+
+
+                                                                 Розрахунок колірної температури
+
+
+
+                                                                  Оновлення кольору LED-стрічки
+
+
+
+                                                                                Стан змінився?
+                                                                                        так
+
+
+                                                                   POST /telemetry (Асинхронно)
+
+
+
+
+                                                                  Таймер оновлення розкладу сплив?
+                                                                                        так
+
+
+                                                                  Оновлення розкладу з сервера
+
+
+
+
+                                          Затримка (Loop Delay)
+
+
+
+
+Рисунок 4.2 – UML діаграма діяльності IoT клієнта
+                                                                            10
+     Код PlantUML для генерації діаграми:
+
+     4.2.6 Програмна реалізація бізнес-логіки та налаштувань
+     Реалізація програмного забезпечення виконана мовою C++ у середовищі
+PlatformIO.
+
+     4.2.6.1 Взаємодія з сервером (HTTP REST)
+
+     Для комунікації з сервером використовується бібліотека «HTTPClient». Нижче
+наведено фрагмент функції «fetchSchedule», яка відповідає за отримання та
+десеріалізацію розкладу освітлення (повний код знаходиться в додатку В).
+
+ 1 void fetchSchedule() {
+ 2   if (WiFi.status() != WL_CONNECTED) return;
+ 3
+ 4   HTTPClient http;
+ 5   String url = String(API_BASE_URL) + API_FETCH_ROUTE;
+ 6
+ 7   http.begin(url);
+ 8   http.addHeader(API_KEY_HEADER, currentApiKey);
+ 9
+10   int httpCode = http.GET();
+11
+12   if (httpCode == HTTP_CODE_OK) {
+13     String payload = http.getString();
+14     JsonDocument doc;
+15     deserializeJson(doc, payload);
+16
+17     // Збереження параметрів профілю
+18     schedule.profileId = doc["profile_id"];
+19     schedule.sleepStartUtcSeconds = doc["sleep_start_utc_seconds"];
+20     schedule.minColorTemp = doc["min_color_temp"];
+21     schedule.nightModeEnabled = doc["night_mode_enabled"];
+22
+23     // Парсинг точок графіка
+24     JsonArray scheduleArray = doc["schedule"];
+25     for (int i = 0; i < schedule.pointCount; ++i) {
+26        // ... логіка конвертації ISO8601 у timestamp ...
+27     }
+28     state.scheduleLoaded = true;
+29   } else if (httpCode == HTTP_CODE_UNAUTHORIZED) {
+30     enterConfigMode(); // Перехід у режим налаштування
+31   }
+32   http.end();
+33 }
+                                                                             11
+     4.2.6.2 Обробка даних з датчиків
+
+     Обробка сенсорів (PIR, Потенціометр, Кнопка) виконується у головному
+циклі. Реалізовано захист від «дребезгу» контактів та впроваджено часові
+обмеження (повний код знаходиться в додатку В).
+
+ 1 void handleMotion() {
+ 2   if (!state.modeAuto) return; // Ігноруємо датчик у ручному режимі
+ 3
+ 4   bool motionDetected = digitalRead(PIN_PIR_SENSOR);
+ 5
+ 6   if (motionDetected) {
+ 7     if (!state.lightIsOn) {
+ 8       sendTelemetry("motion_detected", true);
+ 9     }
+10     state.lightIsOn = true;
+11     state.motionLastSeenMs = millis();
+12     // Оновлення температури відповідно до поточного часу
+13     state.currentColorTemp = getCurrentColorTemp();
+14     return;
+15   }
+16
+17   // Перевірка тайм-ауту (за замовчуванням 5 хвилин)
+18   if (state.lightIsOn &&
+19       (millis() - state.motionLastSeenMs >
+20        (unsigned long)schedule.motionTimeoutSeconds * 1000)) {
+21     state.lightIsOn = false;
+22     sendTelemetry("motion_timeout", false);
+23   }
+24 }
+
+
+     4.2.7 Перевірка роботи IoT клієнта
+
+     Тестування проводилося за допомогою симулятора Wokwi та монітора
+послідовного порту (Serial Monitor). Було перевірено сценарії успішного запуску,
+роботи датчиків та обробки помилок авторизації.
+     На сервері вже існує профіль освітлення:
+
+ 1 {
+ 2   "id": 19,
+ 3   "name": "Living Room",
+ 4   "owner_id": 6,
+ 5   "is_shared": true,
+ 6   "latitude": 49.98081,
+ 7   "longitude": 36.25272,
+ 8   "timezone": "Europe/Kyiv",
+ 9   "sleep_start": "22:00:00",
+10   "sleep_end": "07:00:00",
+                                                                            12
+
+11       "night_mode_enabled": true,
+12       "min_color_temp": 2000,
+13       "max_color_temp": 6500,
+14       "motion_timeout_seconds": 300,
+15       "created_at": "2025-12-24T08:53:13.755305Z"
+16   }
+
+
+         До цього профілю прийв’язаний пристрій:
+
+ 1 {
+ 2   "id": 16,
+ 3   "name": "Kitchen Light",
+ 4   "secret_key":
+   "OjEYR18aTyNiKMEP8o7XLDD3Rv47rUVVzPBIsxrdB0iOb3PMMmpcsRPiWIDJdRb2",
+ 5   "profile_id": 19,
+ 6   "owner_id": 6,
+ 7   "is_public": true,
+ 8   "firmware_version": null,
+ 9   "last_seen": null,
+10   "created_at": "2025-12-24T09:04:17.696065Z"
+11 }
+
+
+         Секретний ключ був вставлений у прошику пристрою.
+
+         4.2.7.1 Ініціалізація та отримання розкладу
+
+         При запуску пристрій успішно підключився до емульованої WiFi мережі,
+синхронізував час через NTP та отримав розклад від локального сервера:
+
+ 1   LumiRum IoT Client v1.0
+ 2   [INIT] LED strip initialized
+ 3   [Config] Using default API Key from config.h
+ 4   [WiFi] Connecting to Wokwi-GUEST..... Connected!
+ 5   [WiFi] IP Address: 10.13.37.2
+ 6   [Time] Synchronizing with NTP server...
+ 7   ........ Synchronized!
+ 8   [Time] Current UTC: Thu Dec 25 22:16:54 2025
+ 9
+10   [API] Fetching lighting schedule...
+11   [API] Schedule loaded successfully!
+12   [API] Profile ID: 19
+13   [API] Points loaded: 96
+14   [API] Motion timeout: 300 seconds
+15   [API] Night mode: Enabled
+16
+17   [READY] Device is ready!
+18   Commands: 'status', 'reset_key', 'fetch', 'time YYYY-MM-DD HH:MM:SS'
+                                                                                    13
+       Для перевірки коректності парсингу було використано наступний JSON-
+пейлоад, що надійшов від сервера (фрагмент):
+
+ 1 {
+ 2   "profile_id": 19,
+ 3   "sleep_start_utc_seconds": 72000,
+ 4   "sleep_end_utc_seconds": 18000,
+ 5   "min_color_temp": 2000,
+ 6   "max_color_temp": 6500,
+ 7   "night_mode_enabled": true,
+ 8   "motion_timeout_seconds": 300,
+ 9   "generated_at": "2025-12-25T22:18:15.438413781Z",
+10   "valid_until": "2025-12-26T22:18:15.438413781Z",
+11   "schedule": [
+12     { "utc": "2025-12-25T22:18:15.438413781Z",
+13       "temp": 2000 },
+14     { "utc": "2025-12-25T22:33:15.438413781Z",
+15       "temp": 2000 },
+16     { "utc": "2025-12-25T22:48:15.438413781Z",
+17       "temp": 2000 },
+18     { "utc": "2025-12-25T23:03:15.438413781Z",
+19       "temp": 2000 },
+20     { "utc": "2025-12-25T23:18:15.438413781Z",
+21       "temp": 2000 },
+22   ]
+23 }
+
+
+       Статус пристрою можна побачити командою «status»:
+
+ 1   DEVICE STATUS
+ 2   Mode: AUTO
+ 3   Light: OFF
+ 4   Brightness: 0%
+ 5   Color Temp: 3500K
+ 6   Schedule loaded:    Yes
+ 7   Night mode enabled: Yes
+ 8   Night mode status: Active
+ 9   Telemetry: Enabled
+10   Current API Key (first 5): OjEYR
+11   Current time: Thu Dec 25 22:17:31 2025
+
+
+       4.2.7.2 Робота бізнес-логіки (Датчик руху)
+
+       Перевірено   реакцію    системи    на   зміну   логічного    рівня     на   піні
+«PIN_PIR_SENSOR».        Система   коректно    увімкнула   світло   та      відправила
+телеметрію:
+
+1    [Motion] Detected - turning light ON
+2    [Telemetry] Sending event: motion_detected
+                                                                               14
+
+3    [Telemetry] Sent successfully
+
+
+        Через 5 хвилин (300 секунд у налаштуваннях переданих сервером) відсутності
+руху:
+
+1    [Motion] Timeout - turning light OFF
+2    [Telemetry] Sending event: motion_timeout
+3    [Telemetry] Sent successfully
+
+
+        Телеметрія котра з’явилась на сервері:
+
+ 1 {
+ 2   "id": 76,
+ 3   "device_id": 16,
+ 4   "event_type": "motion_detected",
+ 5   "motion_detected": true,
+ 6   "light_is_on": false,
+ 7   "brightness": 86,
+ 8   "color_temp": 3500,
+ 9   "ambient_light": null,
+10   "created_at": "2025-12-25T22:21:13.024449Z"
+11 },
+
+
+        4.2.7.3 Обробка помилки авторизації
+
+        Для перевірки надійності не сервер був відправлений запит на зміну ключа.
+Пристрій коректно обробив помилку «401 Unauthorized» та перейшов у режим
+налаштування:
+
+ 1    [API] Fetching lighting schedule...
+ 2    [ERROR] 401 Unauthorized. API Key invalid.
+ 3
+ 4    !!! ENTERING CONFIGURATION MODE !!!
+ 5    Please connect to: http://10.13.37.2
+ 6    Or: http://localhost:8180
+ 7
+ 8    [!] AUTHENTICATION FAILED
+ 9    [!] Device is in CONFIGURATION MODE
+10    [!] Open your browser at: http://localhost:8180
+
+
+        Відкриємо браузер за адресою http://localhost:8180 та вставимо новий ключ
+пристрою:
+
+    1 LumiRum IoT Client v1.0
+    2 [INIT] LED strip initialized
+    3 [Config] API Key loaded from NVS storage.
+                                                                              15
+
+ 4   [WiFi] Connecting to Wokwi-GUEST.... Connected!
+ 5   [WiFi] IP Address: 10.13.37.2
+ 6   [Time] Synchronizing with NTP server...
+ 7    Synchronized!
+ 8   [Time] Current UTC: Thu Dec 25 22:25:50 2025
+ 9
+10
+11   [API] Fetching lighting schedule...
+12   [API] Schedule loaded successfully!
+13   [API] Profile ID: 19
+14   [API] Points loaded: 96
+15   [API] Motion timeout: 300 seconds
+16   [API] Night mode: Enabled
+17
+18   [READY] Device is ready!
+19   Commands: 'status', 'reset_key', 'fetch', 'time YYYY-MM-DD HH:MM:SS'
+
+      4.3 Висновки
+
+      Під час виконання лабораторної роботи було розроблено та протестовано
+програмне забезпечення для IoT-клієнта системи адаптивного освітлення
+«LumiRum» на базі мікроконтролера ESP32-C3. Реалізація виконана мовою C++
+у середовищі PlatformIO з використанням фреймворку Arduino. Застосування
+архітектурного підходу на основі подійного циклу дозволило забезпечити
+ефективну псевдо-паралельну обробку сигналів з датчиків, керування LED-
+стрічкою та підтримку мережевого з’єднання без блокування основного процесу
+роботи пристрою.
+      У ході роботи успішно імплементовано механізми взаємодії з серверною
+частиною через протокол HTTP, що забезпечило отримання складних розкладів
+освітлення та відправку телеметричних даних. Особливу увагу було приділено
+автономності системи: пристрій здатний самостійно обчислювати необхідну
+колірну температуру та яскравість на основі кешованих даних навіть за відсутності
+доступу до мережі Інтернет, що реалізує концепцію «Edge Computing».
+      Результати тестування у симуляторі Wokwi підтвердили коректність роботи
+всіх розроблених модулів. Система продемонструвала надійність при обробці
+нестандартних ситуацій, зокрема, успішно реалізовано механізм переходу в режим
+аварійної конфігурації (Captive Portal) при помилках авторизації, що дозволяє
+відновлювати доступ до пристрою без необхідності фізичного втручання у
+прошивку.
+                                                                          16
+                                   ДОДАТОК А
+                                   Відеозапис
+
+     Відеозапис доповіді: https://youtu.be/6BMxnvsmsME
+     Хронологічний опис відеозапису:
+00:00 Вступ
+00:21 Інформація пристрою на сервері
+00:31 Оновлення API ключа пристрою
+00:46 Компіляція оновленної прошивки
+00:55 Запуск пристрою
+01:19 Опис профілю освітлення на сервері
+01:51 Інформація розкладу освітлення котру отримує девайс
+02:15 Перевірка статусу пристрою
+02:30 Примусове оновлення розкладу освітлення
+02:43 Перевірка реакції на датчик руху
+03:10 Перевірка надходження телеметрії на сервер
+03:24 Тестування таймеру вимкнення світла
+03:37 Перевірка зміни температури кольору в залежності від часу
+04:44 Перевірка праці при застарілому розкладі освітлення
+05:27 Регулювання яскравості світла та перемикання між автоматичним та ручним
+режимом
+05:53 Перевірка записів телеметрії на сервері
+06:07 Вимкнення відправки телеметрії для приватності
+06:21 Симуляція активності для перевірки стану телеметрії
+06:56 Демонстрація, що на сервер телеметрія не надходить
+07:17 Зміна API ключа пристрою на сервері та реагування пристрою на це
+07:56 Оновлення API ключа пристрою без перепрошивки
+08:11 Аналіз логів пристрою після успішного оновленя ключа
+08:27 Створення профілю освітлення без локації на сервері
+08:48 Зміна профілю пристрою на сервері
+08:53 Оновлення розкладу на пристрої
+09:14 Пояснення нового профілю освітлення та розкладу освітлення
+                                                          17
+09:45 Тестування нового розкладу освітлення на пристрої
+10:45 Перевірка автономності пристрою
+11:44 Підсумок
+                                                                                   18
+                                     ДОДАТОК Б
+                         Код налаштувань IoT клієнта (config.h)
+
+      Посилання     на     GitHub:   https://github.com/NureBilousAnton/ark-pzpi-23-3-bilous-anton/blob/main/Lab4/ark-pzpi-23-3-bilous-anton-lab4/src/config.h
+
+ 1   // Device Configuration
+ 2   #ifndef LUMIRUM_CONFIG_H
+ 3   #define LUMIRUM_CONFIG_H
+ 4   #include <Arduino.h> // for time_t type
+ 5
+ 6   // WiFi Credentials
+ 7   // WARNING: the " must stay intact
+ 8   #define WIFI_SSID "Wokwi-GUEST"
+ 9   #define WIFI_PASSWORD ""
+10
+11   // Network & API Configuration
+12   #define API_BASE_URL "http://192.168.18.103:3000"
+13   #define API_FETCH_ROUTE "/devices/circadian"
+14   #define API_TELEMETRY_ROUTE "/telemetry"
+15   #define API_KEY_HEADER "x-api-key"
+16
+17   const int API_KEY_LENGTH = 64; // chars
+18   #define API_DEVICE_KEY
+     "yRPMOjyC61pISjOnNfUZRBU4hTpQMgJXX666xoFTpyMe3idDOpXqRx20pPewQTIM"
+19   const bool TELEMETRY = true; // Whether to send telemetry to the API
+20
+21   const int MAX_WIFI_ATTEMPTS = 20;
+22   const int WIFI_RETRY_DELAY_MS = 500; // 0.5 seconds between connection
+     attempts
+23   const int WEB_SERVER_PORT = 80;
+24
+25   const int API_MAX_SCHEDULE_SIZE = 96; // elements
+26   const int API_MIN_TEMP_CONSTRAINT_K = 1800; // Minimum allowed by API
+27
+28   // Pin configuration
+29   const int PIN_BUTTON = 3;
+30   const int PIN_LED_RING = 8;
+31   const int PIN_PIR_SENSOR = 1;
+32   const int PIN_POTENTIOMETER = 0;
+33
+34   // Hardware configuration
+35   const int LED_COUNT = 16;
+36   const int ANALOG_MAX_VALUE = 4095; // ESP32-C3 ADC resolution is 12-bit
+37   const int PWM_MAX_VALUE = 255;     // Standard 8-bit PWM limit
+38
+39   // Timing configuration
+40   const unsigned long LOOP_DELAY_MS = 50;   // 20Hz refresh rate
+41   const unsigned long BUTTON_DEBOUNCE_MS = 200; // 0.2 seconds is enough
+     for a button press
+42   const unsigned long SCHEDULE_REFRESH_INTERVAL_MS = 3600000; // 1 hour
+                                                                            19
+
+43   const unsigned long TELEMETRY_DEBOUNCE_MS = 2000; // 2 seconds min
+     between sending telemetry events
+44   const unsigned long TIME_JUMP_REFETCH_THRESHOLD_SEC =
+45       3600; // 1 hour change triggers schedule refetch
+46
+47   // Color temperature limits (Kelvin)
+48   const int MIN_COLOR_TEMP_K = 1000;     // Candlelight/Deep Red
+49   const int DEFAULT_COLOR_TEMP_K = 3500; // Warm White
+50
+51   // Brightness thresholds (0-100%)
+52   const int DEFAULT_BRIGHTNESS_LIMIT_PERCENT = 50; // Safety limit for
+     startup
+53   const int BRIGHTNESS_OFF_THRESHOLD_PERCENT = 10; // Below this, lights
+     turn off
+54   const int BRIGHTNESS_CHANGE_THRESHOLD_PERCENT = 5; // Hysteresis to
+     prevent flickering
+55
+56
+57   #endif // LUMIRUM_CONFIG_H
+                                                                                 20
+                                   ДОДАТОК В
+                  Повний код імплементації IoT клієнта (main.cpp)
+
+      Посилання     на   GitHub:   https://github.com/NureBilousAnton/ark-pzpi-23-3-bilous-anton/blob/main/Lab4/ark-pzpi-23-3-bilous-anton-lab4/src/main.cpp
+
+  1   // LumiRum IoT Client for ESP32-C3 with Arduino Framework
+  2
+  3   #include "config.h"
+  4   #include <Adafruit_NeoPixel.h>
+  5   #include <ArduinoJson.h>
+  6   #include <HTTPClient.h>
+  7   #include <Preferences.h>
+  8   #include <WebServer.h>
+  9   #include <WiFi.h>
+ 10
+ 11   const time_t MIN_VALID_EPOCH_SEC = 1735693200; // January 1, 2025
+      (Ensures NTP sync)
+ 12
+ 13 // Algorithm Constants
+ 14 const float KELVIN_DIVISOR = 100.0; // Used in Tanner Helland's
+      algorithm
+ 15
+ 16 Adafruit_NeoPixel strip(LED_COUNT, PIN_LED_RING, NEO_GRB +
+    NEO_KHZ800);
+ 17 Preferences preferences; // Non-volatile storage handler
+ 18 WebServer server(WEB_SERVER_PORT);
+ 19
+ 20 String currentApiKey;        // Stores the active API Key (from NVS or
+    Secrets)
+ 21 bool isInConfigMode = false; // Flag to stop normal operation and
+    serve Web UI
+ 22
+ 23 struct DeviceState {
+ 24   bool modeAuto = true;
+ 25   bool lightIsOn = false;
+ 26   int currentBrightnessPercent = 0;
+ 27   int currentColorTemp = DEFAULT_COLOR_TEMP_K;
+ 28   unsigned long motionLastSeenMs = 0;
+ 29   time_t lastKnownTimeSeconds = 0;
+ 30   bool scheduleLoaded = false;
+ 31   bool scheduleExpiredWarned = false;
+ 32 } state;
+ 33
+ 34 struct LightingSchedule {
+ 35   long profileId = 0;
+ 36   uint32_t sleepStartUtcSeconds = 0;
+ 37   uint32_t sleepEndUtcSeconds = 0;
+ 38   int minColorTemp = DEFAULT_COLOR_TEMP_K;
+ 39   int maxColorTemp = 6500; // a sane default
+                                                                         21
+
+40     bool nightModeEnabled = false;
+41     int motionTimeoutSeconds = 300; // 5 minutes
+42     time_t generatedAt = 0;
+43     time_t validUntil = 0;
+44
+45     struct Point {
+46        time_t timestamp;
+47        int colorTemp;
+48     };
+49     Point points[API_MAX_SCHEDULE_SIZE];
+50     int pointCount = 0;
+51   } schedule;
+52
+53   // Function declarations
+54   void setupWiFi();
+55   void setupTime();
+56   void loadApiKey();
+57   void fetchSchedule();
+58   void sendTelemetry(const char *eventType, bool motionDetected);
+59   int getCurrentColorTemp();
+60   void updateLighting();
+61   void handleButton();
+62   void handleMotion();
+63   void handleBrightnessPot();
+64   void handleTimeJump();
+65   void convertColorTempToRGB(int kelvin, uint8_t *r, uint8_t *g, uint8_t
+     *b);
+66   bool isNightTime();
+67   void setSerialCommands();
+68   void enterConfigMode();
+69   void handleConfigPortal();
+70
+71   void setup() {
+72     Serial.begin(115200);
+73
+74     Serial.println("LumiRum IoT Client v1.0");
+75
+76     // Hardware Init
+77     pinMode(PIN_PIR_SENSOR, INPUT);
+78     pinMode(PIN_BUTTON, INPUT_PULLUP);
+79     pinMode(PIN_POTENTIOMETER, INPUT);
+80
+81     strip.begin();
+82     strip.setBrightness(DEFAULT_BRIGHTNESS_LIMIT_PERCENT);
+83     strip.show();
+84     Serial.println("[INIT] LED strip initialized");
+85
+86     // Load Preferences (NVS)
+87     loadApiKey();
+88
+89     setupWiFi();
+90     setupTime();
+91     fetchSchedule();
+92
+93     if (isInConfigMode) {
+94       Serial.println("\n[!] AUTHENTICATION FAILED");
+                                                                              22
+
+ 95         Serial.println("[!] Device is in CONFIGURATION MODE");
+ 96         Serial.println("[!] Open your browser at: http://localhost:8180");
+ 97       } else {
+ 98         state.lastKnownTimeSeconds = time(nullptr);
+ 99         Serial.println("\n[READY] Device is ready!");
+100         Serial.println(
+101             "Commands: 'status', 'reset_key', 'fetch', 'time YYYY-MM-DD
+      HH:MM:SS'");
+102     }
+103   }
+104
+105   unsigned long lastScheduleCheckMs = 0;
+106
+107   void loop() {
+108     // If we hit a 401 error, enter config mode to update the key
+109     if (isInConfigMode) {
+110       server.handleClient();
+111
+112           delay(10);
+113           return;
+114       }
+115
+116       setSerialCommands();
+117       handleTimeJump();
+118       handleButton();
+119       handleMotion();
+120       handleBrightnessPot();
+121       updateLighting();
+122
+123       if (millis() - lastScheduleCheckMs > SCHEDULE_REFRESH_INTERVAL_MS) {
+124         fetchSchedule();
+125         lastScheduleCheckMs = millis();
+126       }
+127
+128       delay(LOOP_DELAY_MS);
+129   }
+130
+131   void loadApiKey() {
+132     preferences.begin("lumirum", false); // Namespace "lumirum", Read/
+      Write
+133     String savedKey = preferences.getString("apikey", "");
+134
+135       if (savedKey.length() == API_KEY_LENGTH) {
+136         currentApiKey = savedKey;
+137         Serial.println("[Config] API Key loaded from NVS storage.");
+138       } else {
+139         currentApiKey = String(API_DEVICE_KEY); // From config.h
+140         Serial.println("[Config] Using default API Key from config.h");
+141       }
+142   }
+143
+144   void setupWiFi() {
+145     Serial.print("[WiFi] Connecting to ");
+146     Serial.print(WIFI_SSID);
+147     Serial.print("...");
+                                                                            23
+
+148
+149       WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+150
+151       int attempts = 0;
+152       while (WiFi.status() != WL_CONNECTED && attempts <
+      MAX_WIFI_ATTEMPTS) {
+153       delay(WIFI_RETRY_DELAY_MS);
+154       Serial.print(".");
+155       ++attempts;
+156     }
+157
+158       if (WiFi.status() == WL_CONNECTED) {
+159         Serial.println(" Connected!");
+160         Serial.print("[WiFi] IP Address: ");
+161         Serial.println(WiFi.localIP());
+162       } else {
+163         Serial.println(" Failed!");
+164         Serial.println(
+165             "[ERROR] Could not connect to WiFi. Device will work in
+      offline mode.");
+166     }
+167   }
+168
+169   void setupTime() {
+170     Serial.println("[Time] Synchronizing with NTP server...");
+171     configTime(0, 0, "pool.ntp.org", "time.nist.gov");
+172
+173       time_t now = time(nullptr);
+174       int attempts = 0;
+175       while (now < MIN_VALID_EPOCH_SEC && attempts < MAX_WIFI_ATTEMPTS) {
+176         delay(WIFI_RETRY_DELAY_MS);
+177         Serial.print(".");
+178         now = time(nullptr);
+179         ++attempts;
+180       }
+181
+182       if (now > MIN_VALID_EPOCH_SEC) {
+183         Serial.println(" Synchronized!");
+184         Serial.print("[Time] Current UTC: ");
+185         Serial.println(ctime(&now));
+186       } else {
+187         Serial.println(" Failed!");
+188         Serial.println("[WARN] Could not sync time. Using default time.");
+189       }
+190   }
+191
+192   void fetchSchedule() {
+193     if (WiFi.status() != WL_CONNECTED) {
+194       Serial.println("[ERROR] Cannot fetch schedule - no WiFi
+      connection");
+195       return;
+196     }
+197
+198       Serial.println("\n[API] Fetching lighting schedule...");
+                                                                           24
+
+199
+200    HTTPClient http;
+201    String url = String(API_BASE_URL) + API_FETCH_ROUTE;
+202
+203    http.begin(url);
+204    http.addHeader(API_KEY_HEADER, currentApiKey);
+205
+206    int httpCode = http.GET();
+207
+208    if (httpCode == HTTP_CODE_UNAUTHORIZED) {
+209      Serial.println("[ERROR] 401 Unauthorized. API Key invalid.");
+210      enterConfigMode();
+211      http.end();
+212      return;
+213    }
+214
+215    if (httpCode == HTTP_CODE_OK) {
+216      String payload = http.getString();
+217
+218      JsonDocument doc;
+219      DeserializationError error = deserializeJson(doc, payload);
+220
+221      if (error) {
+222        Serial.print("[ERROR] JSON parsing failed: ");
+223        Serial.println(error.c_str());
+224        http.end();
+225        return;
+226      }
+227
+228      schedule.profileId = doc["profile_id"];
+229      schedule.sleepStartUtcSeconds = doc["sleep_start_utc_seconds"];
+230      schedule.sleepEndUtcSeconds = doc["sleep_end_utc_seconds"];
+231      schedule.minColorTemp = doc["min_color_temp"];
+232      schedule.maxColorTemp = doc["max_color_temp"];
+233      schedule.nightModeEnabled = doc["night_mode_enabled"];
+234      schedule.motionTimeoutSeconds = doc["motion_timeout_seconds"];
+235
+236      // Parse ISO8601 timestamps
+237      const char *generatedAtStr = doc["generated_at"];
+238      const char *validUntilStr = doc["valid_until"];
+239
+240      struct tm tmGenerated, tmValid;
+241      strptime(generatedAtStr, "%Y-%m-%dT%H:%M:%S", &tmGenerated);
+242      strptime(validUntilStr, "%Y-%m-%dT%H:%M:%S", &tmValid);
+243
+244      schedule.generatedAt = mktime(&tmGenerated);
+245      schedule.validUntil = mktime(&tmValid);
+246
+247      JsonArray scheduleArray = doc["schedule"];
+248      schedule.pointCount = min((int)scheduleArray.size(),
+      API_MAX_SCHEDULE_SIZE);
+249
+250      for (int i = 0; i < schedule.pointCount; ++i) {
+251        JsonObject point = scheduleArray[i];
+252
+253         const char *utcStr = point["utc"];
+                                                                         25
+
+254             struct tm tm;
+255             strptime(utcStr, "%Y-%m-%dT%H:%M:%S", &tm);
+256             schedule.points[i].timestamp = mktime(&tm);
+257
+258             schedule.points[i].colorTemp = point["temp"];
+259         }
+260
+261         state.scheduleLoaded = true;
+262         state.scheduleExpiredWarned = false;
+263
+264         Serial.println("[API] Schedule loaded successfully!");
+265         Serial.print("[API] Profile ID: ");
+266         Serial.println(schedule.profileId);
+267         Serial.print("[API] Points loaded: ");
+268         Serial.println(schedule.pointCount);
+269         Serial.print("[API] Motion timeout: ");
+270         Serial.print(schedule.motionTimeoutSeconds);
+271         Serial.println(" seconds");
+272         Serial.print("[API] Night mode: ");
+273         Serial.println(schedule.nightModeEnabled ? "Enabled" :
+      "Disabled");
+274
+275       } else {
+276         Serial.print("[ERROR] HTTP request failed with code: ");
+277         Serial.println(httpCode);
+278         if (httpCode > 0)
+279           Serial.println(http.getString());
+280       }
+281
+282       http.end();
+283   }
+284
+285   static unsigned long lastTelemetryMs = 0;
+286
+287   void sendTelemetry(const char *eventType, bool motionDetected) {
+288     if (!TELEMETRY)
+289       return;
+290
+291       if (millis() - lastTelemetryMs < TELEMETRY_DEBOUNCE_MS)
+292         return;
+293       lastTelemetryMs = millis();
+294
+295       if (WiFi.status() != WL_CONNECTED)
+296         return;
+297
+298       Serial.print("[Telemetry] Sending event: ");
+299       Serial.println(eventType);
+300
+301       HTTPClient http;
+302       String url = String(API_BASE_URL) + API_TELEMETRY_ROUTE;
+303
+304       http.begin(url);
+305       http.addHeader("Content-Type", "application/json");
+306       http.addHeader(API_KEY_HEADER, currentApiKey);
+307
+308       JsonDocument doc;
+                                                                               26
+
+309       doc["event_type"] = eventType;
+310       doc["motion_detected"] = motionDetected;
+311       doc["light_is_on"] = state.lightIsOn;
+312       doc["brightness"] = state.currentBrightnessPercent;
+313
+314       if (state.currentColorTemp >= API_MIN_TEMP_CONSTRAINT_K) {
+315         doc["color_temp"] = state.currentColorTemp;
+316       }
+317
+318       String jsonPayload;
+319       serializeJson(doc, jsonPayload);
+320
+321       int httpCode = http.POST(jsonPayload);
+322
+323       if (httpCode == HTTP_CODE_UNAUTHORIZED) {
+324         Serial.println("[ERROR] 401 Unauthorized. API Key invalid.");
+325         enterConfigMode();
+326       } else if (httpCode == HTTP_CODE_OK || httpCode ==
+      HTTP_CODE_CREATED) {
+327       Serial.println("[Telemetry] Sent successfully");
+328     } else {
+329       Serial.print("[Telemetry] Failed with code: ");
+330       Serial.println(httpCode);
+331     }
+332
+333       http.end();
+334   }
+335
+336   void enterConfigMode() {
+337     if (isInConfigMode)
+338       return;
+339
+340       isInConfigMode = true;
+341
+342       // Visual cue with red light to indicate error/attention needed
+343       state.lightIsOn = true;
+344       state.currentColorTemp = MIN_COLOR_TEMP_K;
+345       state.currentBrightnessPercent = 50;
+346       updateLighting();
+347
+348       Serial.println("\n!!! ENTERING CONFIGURATION MODE !!!");
+349       Serial.print("Please connect to: http://");
+350       Serial.println(WiFi.localIP());
+351       Serial.println("Or: http://localhost:8180");
+352
+353       // Define Web Server Routes
+354       server.on("/", HTTP_GET, []() {
+355         String html = "<html><body><h1>LumiRum Device Config</h1>";
+356         html += "<p>Device is unauthorized. Please update API Key.</p>";
+357         html += "<form action='/save' method='POST'>";
+358         html += "API Key: <input type='text' name='apikey'
+      size='70'><br><br>";
+359       html += "<input type='submit' value='Save & Reboot'>";
+360       html += "</form></body></html>";
+361       server.send(HTTP_CODE_OK, "text/html", html);
+                                                                              27
+
+362       });
+363
+364       server.on("/save", HTTP_POST, []() {
+365         if (server.hasArg("apikey")) {
+366           String newKey = server.arg("apikey");
+367           newKey.trim();
+368
+369           if (newKey.length() == API_KEY_LENGTH) {
+370             preferences.putString("apikey", newKey);
+371             server.send(HTTP_CODE_OK, "text/html",
+372                          "<body>Saved! Rebooting...</body>");
+373             delay(1000);
+374             ESP.restart();
+375           } else {
+376             server.send(HTTP_CODE_BAD_REQUEST, "text/html",
+377                          "<body>Invalid Key Length</body>");
+378           }
+379         } else {
+380           server.send(HTTP_CODE_BAD_REQUEST, "text/plain", "Missing
+      apikey");
+381       }
+382     });
+383
+384       server.begin();
+385   }
+386
+387   int getCurrentColorTemp() {
+388     if (!state.scheduleLoaded || schedule.pointCount == 0)
+389       return DEFAULT_COLOR_TEMP_K;
+390
+391       time_t now = time(nullptr);
+392
+393       if (schedule.nightModeEnabled && isNightTime())
+394         return MIN_COLOR_TEMP_K;
+395
+396       if (now > schedule.validUntil && !state.scheduleExpiredWarned) {
+397         Serial.println("[WARN] Schedule expired, using cyclic lookup");
+398         state.scheduleExpiredWarned = true;
+399       }
+400
+401       // Get time of day for cyclic lookup
+402       struct tm timeinfo;
+403       gmtime_r(&now, &timeinfo);
+404       uint32_t currentDaySeconds =
+405           timeinfo.tm_hour * 3600 + timeinfo.tm_min * 60 +
+      timeinfo.tm_sec;
+406
+407       // Find matching points by time of day (cyclic)
+408       for (int i = 0; i < schedule.pointCount - 1; ++i) {
+409         struct tm tm1, tm2;
+410         gmtime_r(&schedule.points[i].timestamp, &tm1);
+411         gmtime_r(&schedule.points[i + 1].timestamp, &tm2);
+412
+                                                                              28
+
+413           uint32_t daySeconds1 = tm1.tm_hour * 3600 + tm1.tm_min * 60 +
+      tm1.tm_sec;
+414       uint32_t daySeconds2 = tm2.tm_hour * 3600 + tm2.tm_min * 60 +
+      tm2.tm_sec;
+415
+416           if (currentDaySeconds >= daySeconds1 && currentDaySeconds <
+      daySeconds2) {
+417         // Linear interpolation
+418         float progress = (float)(currentDaySeconds - daySeconds1) /
+419                          (float)(daySeconds2 - daySeconds1);
+420         int temp1 = schedule.points[i].colorTemp;
+421         int temp2 = schedule.points[i + 1].colorTemp;
+422
+423               return temp1 + (int)(progress * (temp2 - temp1));
+424           }
+425       }
+426
+427       // Use last point if past all points
+428       return schedule.points[schedule.pointCount - 1].colorTemp;
+429   }
+430
+431   bool isNightTime() {
+432     time_t now = time(nullptr);
+433     struct tm timeinfo;
+434     gmtime_r(&now, &timeinfo);
+435     uint32_t secondsSinceMidnight =
+436         timeinfo.tm_hour * 3600 + timeinfo.tm_min * 60 +
+      timeinfo.tm_sec;
+437
+438       if (schedule.sleepStartUtcSeconds <= schedule.sleepEndUtcSeconds) {
+439         // e.g. 2:00 - 10:00 a.m.
+440         return secondsSinceMidnight >= schedule.sleepStartUtcSeconds &&
+441                secondsSinceMidnight < schedule.sleepEndUtcSeconds;
+442       } else {
+443         // e.g. 20:00 - 6:00
+444         return secondsSinceMidnight >= schedule.sleepStartUtcSeconds ||
+445                secondsSinceMidnight < schedule.sleepEndUtcSeconds;
+446       }
+447   }
+448
+449   void handleTimeJump() {
+450     time_t now = time(nullptr);
+451     time_t timeDiff = labs(now - state.lastKnownTimeSeconds);
+452
+453       if (timeDiff > schedule.motionTimeoutSeconds) {
+454         Serial.print("[Time] Detected time jump of ");
+455         Serial.print(timeDiff);
+456         Serial.println(" seconds");
+457
+458           // Check if light timeout expired during jump
+459           if (state.lightIsOn && state.modeAuto) {
+460             unsigned long timeSinceMotion =
+461                 (now - (state.motionLastSeenMs / 1000)) * 1000;
+462             if (timeSinceMotion >
+                                                                                 29
+
+463                     (unsigned long)schedule.motionTimeoutSeconds * 1000) {
+464                   Serial.println("[Time] Light timeout expired during time
+      jump");
+465                   state.lightIsOn = false;
+466               }
+467           }
+468
+469           // Trigger schedule refresh if time jumped significantly forward
+470           if (now > state.lastKnownTimeSeconds +
+      TIME_JUMP_REFETCH_THRESHOLD_SEC) {
+471         Serial.println("[Time] Triggering schedule refresh");
+472         fetchSchedule();
+473       }
+474     }
+475
+476       state.lastKnownTimeSeconds = now;
+477   }
+478
+479   static bool lastButtonState = HIGH;
+480   static unsigned long lastButtonPressMs = 0;
+481
+482   void handleButton() {
+483     bool currentButtonState = digitalRead(PIN_BUTTON);
+484
+485       if (currentButtonState == LOW && lastButtonState == HIGH &&
+486           millis() - lastButtonPressMs > BUTTON_DEBOUNCE_MS) {
+487         state.modeAuto = !state.modeAuto;
+488
+489           Serial.print("[Button] Mode switched to: ");
+490           Serial.println(state.modeAuto ? "AUTO" : "MANUAL");
+491
+492           if (state.modeAuto) {
+493             state.lightIsOn = false;
+494           } else {
+495             state.lightIsOn = true;
+496             state.currentColorTemp = DEFAULT_COLOR_TEMP_K;
+497           }
+498
+499           sendTelemetry("mode_change", false);
+500           lastButtonPressMs = millis();
+501       }
+502
+503       lastButtonState = currentButtonState;
+504   }
+505
+506   void handleMotion() {
+507     if (!state.modeAuto)
+508       return;
+509
+510       bool motionDetected = digitalRead(PIN_PIR_SENSOR);
+511
+512       if (motionDetected) {
+513         if (!state.lightIsOn) {
+514           Serial.println("[Motion] Detected - turning light ON");
+515           sendTelemetry("motion_detected", true);
+                                                                               30
+
+516           }
+517
+518           state.lightIsOn = true;
+519           state.motionLastSeenMs = millis();
+520           state.currentColorTemp = getCurrentColorTemp();
+521           return;
+522       }
+523
+524       if (state.lightIsOn &&
+525           (millis() - state.motionLastSeenMs >
+526            (unsigned long)schedule.motionTimeoutSeconds * 1000)) {
+527         Serial.println("[Motion] Timeout - turning light OFF");
+528         state.lightIsOn = false;
+529         sendTelemetry("motion_timeout", false);
+530       }
+531   }
+532
+533   void handleBrightnessPot() {
+534     int potValue = analogRead(PIN_POTENTIOMETER);
+535     int brightness = map(potValue, 0, ANALOG_MAX_VALUE, 0, 100);
+536
+537       if (brightness <= BRIGHTNESS_OFF_THRESHOLD_PERCENT) {
+538         if (state.lightIsOn && !state.modeAuto) {
+539           state.lightIsOn = false;
+540           Serial.println("[Brightness] Light turned OFF (pot at
+      minimum)");
+541       }
+542       state.currentBrightnessPercent = 0;
+543       return;
+544     }
+545
+546       if (!state.modeAuto && !state.lightIsOn &&
+547           brightness > BRIGHTNESS_OFF_THRESHOLD_PERCENT) {
+548         state.lightIsOn = true;
+549         Serial.println("[Brightness] Light turned ON (pot increased)");
+550       }
+551
+552       if (abs(brightness - state.currentBrightnessPercent) >
+553           BRIGHTNESS_CHANGE_THRESHOLD_PERCENT) {
+554         state.currentBrightnessPercent = brightness;
+555       }
+556   }
+557
+558   void updateLighting() {
+559     if (!state.lightIsOn) {
+560       strip.clear();
+561       strip.show();
+562       return;
+563     }
+564
+565       uint8_t r, g, b;
+566       convertColorTempToRGB(state.currentColorTemp, &r, &g, &b);
+567
+568       int actualBrightness =
+569           map(state.currentBrightnessPercent, 0, 100, 0, PWM_MAX_VALUE);
+570       strip.setBrightness(actualBrightness);
+                                                                          31
+
+571
+572       for (int i = 0; i < LED_COUNT; ++i)
+573         strip.setPixelColor(i, strip.Color(r, g, b));
+574
+575       strip.show();
+576   }
+577
+578   // Tanner Helland's Algorithm for RGB from Kelvin
+579   // https://tannerhelland.com/2012/09/18/convert-temperature-rgb-
+      algorithm-code.html
+580   void convertColorTempToRGB(int kelvin, uint8_t *r, uint8_t *g, uint8_t
+      *b) {
+581     float temp = kelvin / KELVIN_DIVISOR;
+582     float red, green, blue;
+583
+584       // Red calculation
+585       if (temp <= 66) {
+586         red = 255;
+587       } else {
+588         red = temp - 60;
+589         red = 329.698727446 * pow(red, -0.1332047592);
+590         red = constrain(red, 0, 255);
+591       }
+592
+593       // Green calculation
+594       if (temp <= 66) {
+595         green = temp;
+596         green = 99.4708025861 * log(green) - 161.1195681661;
+597         green = constrain(green, 0, 255);
+598       } else {
+599         green = temp - 60;
+600         green = 288.1221695283 * pow(green, -0.0755148492);
+601         green = constrain(green, 0, 255);
+602       }
+603
+604       // Blue calculation
+605       if (temp >= 66) {
+606         blue = 255;
+607       } else if (temp <= 19) {
+608         blue = 0;
+609       } else {
+610         blue = temp - 10;
+611         blue = 138.5177312231 * log(blue) - 305.0447927307;
+612         blue = constrain(blue, 0, 255);
+613       }
+614
+615       *r = (uint8_t)red;
+616       *g = (uint8_t)green;
+617       *b = (uint8_t)blue;
+618   }
+619
+620   void setSerialCommands() {
+621     if (Serial.available() <= 0)
+622       return;
+623
+                                                                          32
+
+624     String command = Serial.readStringUntil('\n');
+625     command.trim();
+626
+627     if (command == "status") {
+628       Serial.println("\nDEVICE STATUS");
+629       Serial.print("Mode: ");
+630       Serial.println(state.modeAuto ? "AUTO" : "MANUAL");
+631       Serial.print("Light: ");
+632       Serial.println(state.lightIsOn ? "ON" : "OFF");
+633       Serial.print("Brightness: ");
+634       Serial.print(state.currentBrightnessPercent);
+635       Serial.println("%");
+636       Serial.print("Color Temp: ");
+637       Serial.print(state.currentColorTemp);
+638       Serial.println("K");
+639       Serial.print("Schedule loaded:     ");
+640       Serial.println(state.scheduleLoaded ? "Yes" : "No");
+641       Serial.print("Night mode enabled: ");
+642       Serial.println(schedule.nightModeEnabled ? "Yes" : "No");
+643       Serial.print("Night mode status: ");
+644       Serial.println(schedule.nightModeEnabled && isNightTime() ?
+      "Active"
+645                                                                   :
+      "Inactive");
+646       Serial.print("Telemetry: ");
+647       Serial.println(TELEMETRY ? "Enabled" : "Disabled");
+648       Serial.print("Current API Key (first 5): ");
+649       Serial.println(currentApiKey.substring(0, 5));
+650       time_t now = time(nullptr);
+651       Serial.print("Current time: ");
+652       Serial.print(ctime(&now));
+653       Serial.println();
+654
+655     } else if (command == "fetch") {
+656       fetchSchedule();
+657
+658     } else if (command == "reset_key") {
+659       preferences.putString("apikey", "");
+660       Serial.println("API Key cleared from NVS. Rebooting...");
+661       delay(500);
+662       ESP.restart();
+663
+664     } else if (command.startsWith("time ")) {
+665       String timeStr = command.substring(5);
+666       struct tm tm;
+667       if (strptime(timeStr.c_str(), "%Y-%m-%d %H:%M:%S", &tm) == NULL) {
+668         Serial.println("[ERROR] Invalid time format. Use: YYYY-MM-DD
+      HH:MM:SS");
+669         return;
+670       }
+671
+672       time_t t = mktime(&tm);
+673       struct timeval tv = {t, 0};
+674       settimeofday(&tv, NULL);
+                                                 33
+
+675           Serial.print("[Time] Set to: ");
+676           Serial.println(ctime(&t));
+677       }
+678   }
+
